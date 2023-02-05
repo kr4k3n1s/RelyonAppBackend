@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  mongodb_container:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+
+  relyon-app-server:
+    image: relyon-app-server
+    build:
+      context: runtime
+      dockerfile: ./Dockerfile.dev
+    volumes:
+      - ./runtime:/usr/src/app
+    environment:
+      NODE_ENV: development
+    ports:
+      - 3000:3000
+    depends_on:
+      - mongodb_container
+
+volumes:
+  data:

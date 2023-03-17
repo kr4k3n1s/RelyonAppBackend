@@ -1,5 +1,7 @@
-const express = require('express');
+import "reflect-metadata";
+import { RelyonAPI } from './RelyonAPI/RelyonAPI';
 
+const express = require('express');
 const { PORT = '3000' } = process.env
 const app = express()
 const ver = '0.0.1';
@@ -11,8 +13,5 @@ app.listen(PORT, () => {
     console.log('Excecution enviroment: ' + env);
 });
 
-const OpenFoodFactsAPI = require('./FoodData/OFFAPI.js');
-app.use(OpenFoodFactsAPI);
-
-const RelyonAppAPI = require('./RelyonAPI/RelyonAPI.js');
-app.use(RelyonAppAPI);
+const RelyonApiRunner = new RelyonAPI(app);
+RelyonApiRunner.attachServices();

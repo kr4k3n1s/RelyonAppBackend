@@ -1,14 +1,84 @@
-import { RelyonAllergen, RelyonAllergy } from "./RelyonAllergicProfile";
+import { RelyonAllergen, RelyonAllergy, RelyonDBRef, RelyonQuestion } from "./RelyonAllergicProfile";
 import { RelyonFood } from "./RelyonAllergicProfile";
 import { RelyonGroceries } from "./RelyonAllergicProfile";
 import { RelyonInfluences } from "./RelyonAllergicProfile";
 
-import auth from "../RelyonAuth/auth";
+import { AdminAuth, UserAuth } from "../RelyonAuth/auth";
+
 import { plainToInstance } from "class-transformer";
 const express = require('express');
 const router = express.Router();
 
 module.exports = router
+
+router.get('/testQuery', async (req, res, next) => {
+    const ref = req.query.ref;
+    const qual = req.query.qual;
+    try {
+        var dbRef = new RelyonDBRef(ref, qual);
+        res.status(200).send({status: 'success', result: await dbRef.getReferencedObject()});
+    } catch (error){
+        res.status(500).send({status: 'error', result: error.message});
+    }
+});
+
+router.get('/questionOptions', async (req, res, next) => {
+    const id = req.query.id;
+    const filter = req.query.filter;
+    try {
+        var question = await RelyonQuestion.initByID(id);
+        if(!(question instanceof RelyonQuestion)) throw Error('Received object is not a question. Object: ' + JSON.stringify(question));
+        var options = await question.getOptions(filter);
+        res.status(200).send({status: 'success', result: options});
+    } catch (error){
+        res.status(500).send({status: 'error', result: error.message});
+    }
+});
+
+router.get('/questionSourceOptions', UserAuth, async (req, res, next) => {
+    const id = req.query.id;
+    const filter = req.query.filter;
+    try {
+        var question = await RelyonQuestion.initByID(id);
+        if(!(question instanceof RelyonQuestion)) throw Error('Received object is not a question. Object: ' + JSON.stringify(question));
+        var options = await question.getSourceOptions(filter);
+        res.status(200).send({status: 'success', result: options});
+    } catch (error){
+        res.status(500).send({status: 'error', result: error.message});
+    }
+});
+
+router.post('/addQuestion', AdminAuth, express.json({type: '*/*'}), async (req, res, next) => {
+    var data = req.body;
+    try {
+        var question = plainToInstance(RelyonQuestion, data, { excludeExtraneousValues: true, exposeUnsetFields: false });
+        var id = await question.insertToDatabase();
+        res.status(200).send({status: 'success', result: id});
+    } catch (error){
+        res.status(500).send({status: 'error', result: error.message});
+    }
+});
+
+router.post('/updateQuestion', express.json({type: '*/*'}), async (req, res, next) => {
+    var data = req.body;
+    try {
+        var question = plainToInstance(RelyonQuestion, data, { excludeExtraneousValues: true, exposeUnsetFields: false });
+        var id = await question.updateOnDatabase();
+        res.status(200).send({status: 'success', result: id});
+    } catch (error){
+        res.status(500).send({status: 'error', result: error.message});
+    }
+});
+
+// router.get('/testQuery', async (req, res, next) => {
+//     const ref = req.query.ref;
+//     try {
+//         var result = await new RelyonDBRef(ref).filteredReferToPlain('Hist');
+//         res.status(200).send({status: 'success', result: result});
+//     } catch (error){
+//         res.status(500).send({status: 'error', result: error.message});
+//     }
+// });
 
 router.post('/updateAllergy', express.json({type: '*/*'}), async (req, res, next) => {
     var allergyData = req.body;
@@ -76,7 +146,7 @@ router.get('/influence', async (req, res, next) => {
     }
 });
 
-router.post('/addInfluence', auth, async (req, res, next) => {
+router.post('/addInfluence', UserAuth, async (req, res, next) => {
     const name = req.query.name;
     try {
         var influence = new RelyonInfluences(name, name.toLowerCase(), true);
@@ -104,7 +174,7 @@ router.get('/food', async (req, res, next) => {
     }
 });
 
-router.post('/addFood', auth, async (req, res, next) => {
+router.post('/addFood', UserAuth, async (req, res, next) => {
     const name = req.query.name;
     try {
         var food = new RelyonFood(name, name.toLowerCase(), true);
@@ -132,7 +202,7 @@ router.get('/grocery', async (req, res, next) => {
     }
 });
 
-router.post('/addGrocery', auth, async (req, res, next) => {
+router.post('/addGrocery', UserAuth, async (req, res, next) => {
     const name = req.query.name;
     try {
         var grocery = new RelyonGroceries(name, name.toLowerCase(), true);

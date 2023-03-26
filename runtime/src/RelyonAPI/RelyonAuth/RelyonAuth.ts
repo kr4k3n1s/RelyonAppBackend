@@ -114,7 +114,8 @@ export class RelyonAuth {
         const col = connection.db('RelyonApp').collection('Users');
         const result = await col.findOne({uid: new ObjectId(uid), session: session});
         if(result == null) throw Error('Invalid session provided.');
-        const token = jwt.sign({uid: result.uid, email: result.email, username: result.username, phone: result.phone}, "RANDOM-TOKEN", {expiresIn: "24h"});
+        console.log('isAdmin: ' + result.isAdmin);
+        const token = jwt.sign({uid: result.uid, email: result.email, username: result.username, phone: result.phone, isAdmin: result.isAdmin}, "RANDOM-TOKEN", {expiresIn: "24h"});
         return {session: session, token: token};
     }
 
@@ -181,7 +182,6 @@ export class RelyonAuth {
             const connection = await this.client.connect();
             const col = connection.db('RelyonApp').collection('Users');
             const result = await col.updateOne({uid: new ObjectId(uid)}, { $set: { session: session, last_login: Timestamp.fromNumber(Date.now())}});
-            console.log('')
             const token = jwt.sign(
                 {
                     uid: uid,

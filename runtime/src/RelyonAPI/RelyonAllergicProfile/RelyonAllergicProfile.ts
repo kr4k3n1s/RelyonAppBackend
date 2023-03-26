@@ -1,7 +1,8 @@
-import { plainToClass, plainToInstance, Expose, Type, Transform } from "class-transformer";
+import { plainToClass, plainToInstance, Expose, Type, Transform, Exclude } from "class-transformer";
 import { ObjectId } from "mongodb";
 import { DBObject, JSONConvertible } from "../../Framework/RelyonCore";
 import { DBClient } from "../RelyonAPI";
+import { RelyonDBChoiceObject, RelyonDBRef } from "../RelyonDatabase/RelyonDatabase";
 
 
 // ! Allergen Class
@@ -307,8 +308,10 @@ export class RelyonInfluences implements JSONConvertible, DBObject {
     
 }
 
-export interface RelyonAllergy {
 
+// ! Allergy Class
+export interface RelyonAllergy {
+    
     _id?: ObjectId;
     name: string;
     relatedQuestions?: Array<ObjectId>;
@@ -324,7 +327,7 @@ export class RelyonAllergy implements JSONConvertible, DBObject {
     _id?: ObjectId;
     @Expose() 
     name!: string;
-    @Expose() @Transform(({ value }) => value ? value.map((obj: unknown[]) => {return new ObjectId(value)}) : undefined, { toClassOnly: true })
+    @Expose() @Transform(({ value }) => value ? value.map((_obj: unknown[]) => {return new ObjectId(value)}) : undefined, { toClassOnly: true })
     relatedQuestions?: Array<ObjectId>;
     @Expose() @Transform(({ value }) => value ? value.map((obj: unknown[]) => {return plainToInstance(RelyonAllergen, obj)}) : undefined, { toClassOnly: true })
     allergens?: Array<RelyonAllergen>;
@@ -408,14 +411,95 @@ export class RelyonAllergy implements JSONConvertible, DBObject {
 
 }
 
-export interface RelyonAllergyQuestion {
+// ! Question Class
+
+export interface RelyonQuestion {
     _id?: ObjectId;
     question: string;
-    relatedAllergies: [ObjectId];
-    preDefined: boolean;
+    category: string;
+    choiceType: string;
+    choice?: RelyonDBChoiceObject<RelyonDBRef<any>[]>
 }
 
-export class RelyonAllergyQuestion {
+export class RelyonQuestion implements JSONConvertible, DBObject {
+    @Expose() @Transform(({ value }) => value ? new ObjectId(value) : undefined, { toClassOnly: true })
+    _id?: ObjectId;
+    @Expose() 
+    question!: string;
+    @Expose() 
+    category!: string;  
+    @Expose() 
+    choiceType!: string;
+    @Expose() @Transform(({ value }) => new RelyonDBChoiceObject(value.object.map((obj: { ref: string; }) => {
+        return new RelyonDBRef(obj.ref, value.choiceQualifier);
+    }), value.choiceQualifier), { toClassOnly: true })
+    choice?: RelyonDBChoiceObject<RelyonDBRef<any>[]>
 
+    static async initByID(id: string){
+        const connection = await DBClient.connect();
+        const col = connection.db('RelyonAllergyProfile').collection('Questions');
+        var result = await col.findOne<RelyonQuestion>({_id: new ObjectId(id)});
+        if(result == null) throw Error(`Could not find Question with this id on Database.`);
+        return plainToInstance(RelyonQuestion, result);
+    }
+
+    isComplete(): boolean {
+        return (
+            this._id instanceof ObjectId &&
+            typeof this.question == "string" && 
+            typeof this.category == "string" && 
+            typeof this.choiceType == "string" && 
+            this.choice instanceof RelyonDBChoiceObject<RelyonDBRef<any>[]>);
+    }
+
+    isPartial(): boolean {
+         return (
+            typeof this.question == "string" && 
+            typeof this.category == "string" && 
+            typeof this.choiceType == "string");
+    }
+
+    async getOptions(withRefFilter?: string): Promise<any[]> {
+        var objects: any[] = [];
+        for(var refObject of this.choice!.object) {
+            if(withRefFilter) refObject.refObject?.applyFilters(withRefFilter);
+            var object = await refObject.getReferencedObject();
+            if(object) objects.push(object);
+        }
+        return objects;
+    }
+    
+    async getSourceOptions(withRefFilter?: string): Promise<any[] | undefined> {
+        if(this.choice === undefined || this.choice.choiceQualifier === undefined) throw Error('Choice qualifier or object is not defined for this object.');
+        var dbRef = new RelyonDBRef<any>(this.choice.choiceQualifier);
+        if(withRefFilter && dbRef.refObject !== undefined) dbRef.refObject.applyFilters(withRefFilter);
+        return await dbRef.getUnderlayingObjects();
+    }
+
+    async insertToDatabase(includeIfFound?: boolean | undefined): Promise<ObjectId> {
+        if (!this.isPartial()) throw new Error('Object of Question is not complete or correct.');
+        const connection = await DBClient.connect();
+        const col = connection.db('RelyonAllergyProfile').collection('Questions');
+        const exists = await col.find({ $or: [ {question: this.question}, {_id: this._id} ] }).toArray();
+
+        console.log('Array: ' + JSON.stringify(exists));
+        if(exists.length > 1) throw new Error('Multiple Questions found for id: ' + this._id + ', question: ' + this.question + '. Probably mismatched question and id?');
+        if(exists != undefined && exists.length > 0 && !includeIfFound) throw new Error('Question with this question or id already exists');
+        if(exists != undefined && exists.length > 0) return exists[0]._id;
+
+        const result = await col.insertOne(this);
+        if(result == null) throw Error(`Could not insert Question to Database.`);
+        return result.insertedId;
+    }
+
+    async updateOnDatabase(): Promise<boolean> {
+        if (!this.isPartial()) throw new Error('Object of Question is not complete or correct.');
+        const connection = await DBClient.connect();
+        const col = connection.db('RelyonAllergyProfile').collection('Questions');
+
+        const result = await col.updateOne({ _id: this._id }, { $set: this });
+        if(result.matchedCount < 1) throw new Error('No record for question with id: ' + this._id + ' found.');
+        return result.modifiedCount == 1;
+    }
+    
 }
-

@@ -1,5 +1,5 @@
 import { Authenticator } from '../RelyonAPI';
-const auth = require("./auth");
+import { UserAuth } from './auth';
 const express = require('express');
 const router = express.Router();
 
@@ -52,7 +52,7 @@ router.post('/register', async (req, res, next) => {
    
 });
 
-router.get('/user', auth, async (req, res) => {
+router.get('/user', UserAuth, async (req, res) => {
     try{
         const uid = req.query.uid;
         if(uid !== undefined) {
@@ -66,7 +66,7 @@ router.get('/user', auth, async (req, res) => {
     }
 });
 
-router.get('/userProfile', auth, async (req, res) => {
+router.get('/userProfile', UserAuth, async (req, res) => {
     try{
        res.status(200).send({status: 'success', result: await Authenticator.userProfile(req.user.uid)});
     } catch (ex){
@@ -89,7 +89,7 @@ router.post('/verifySession', async (req, res) => {
     }
 });
 
-router.get('/tokenUser', auth, async (req, res) => {
+router.get('/tokenUser', UserAuth, async (req, res) => {
     try {
         res.status(200).send({status: 'verified', result: req.user});
     } catch (ex){
@@ -97,7 +97,7 @@ router.get('/tokenUser', auth, async (req, res) => {
     }
 });
 
-router.get('/getUser', auth, async (req, res) => {
+router.get('/getUser', UserAuth, async (req, res) => {
     try{
         const filterField = req.query.filter_field;
         const filterValue = req.query.filter_value;

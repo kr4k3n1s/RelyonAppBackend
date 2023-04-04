@@ -18,33 +18,72 @@ export class RelyonDBChoiceObject<T = unknown> {
 export interface RelyonReferenceObject {
     database: string;
     collection: string;
-    query: {fieldName: string; fieldValue: any; operation?: string;}[];
+    query: {fieldName: string; operand: {fieldValue: any; operation?: string;}[] }[];
     choiceSpecific?: boolean;
 }
 
 export class RelyonReferenceObject {
 
-    constructor(database: string, collection: string, query: {fieldName: string; fieldValue: any; operation?: string;}[], choiceSpecific = true){
+    constructor(database: string, collection: string, query?: {fieldName: string; operand: {fieldValue: any; operation?: string;}[] }[], choiceSpecific = true){
         this.database = database;
         this.collection = collection;
-        this.query = query;
+        this.query = query!;
         this.choiceSpecific = choiceSpecific;
     }
 
-    static parseReference(reference: string, qualifier?: string): RelyonReferenceObject{
-        if(reference.split('/').length === 2) return new RelyonReferenceObject(reference.split('/')[0], reference.split('/')[1], [], false);
-        var db = qualifier ? qualifier.split('/')[0] : reference.split('/')[0];
-        var collection = qualifier ? qualifier.split('/')[1] : reference.split('/')[1];
+    static parseReference(reference: string, qualifier = ''): RelyonReferenceObject | undefined {
+        var queryIdentificators = reference.match(/([^\/]+)\/([^\/]+)(?:\/(.+))?/);
+        var qualifierIdentificators = qualifier.match(/([^\/]+)\/([^\/]+)(?:\/(.+))?/);
 
-        var queryObjects = ((reference.split('/').length == 1 && qualifier) ? reference : reference.split('/')[2]).split(',');
-        var query:{fieldName: string; fieldValue: any; operation?: string;}[] = new Array<{fieldName: string; fieldValue: any; operation?: string;}>();
-        for(var queryStr of queryObjects){
-            var queryPieces = queryStr.split(':');
-            if(queryPieces.length < 3) continue;
-            query.push({fieldName: queryPieces[0], fieldValue: (queryPieces[0] === '_id') ? new ObjectId(queryPieces[2]) : JSON.parse(queryPieces[2]), operation: queryPieces[1]});
+        if(queryIdentificators === null && qualifierIdentificators === null) throw new Error('Query is incomplete or not valid!');
+        if(qualifier && queryIdentificators && queryIdentificators.length < 2) throw new Error('Query is incomplete or not valid!');
+        if(reference.split('/').length === 2 && queryIdentificators) return new RelyonReferenceObject(queryIdentificators[1], queryIdentificators[2], [], false);
+      
+        var db = qualifierIdentificators !== null ? qualifierIdentificators[1] : queryIdentificators![1];
+        var collection = qualifierIdentificators !== null ? qualifierIdentificators[2] : queryIdentificators![2];
+      
+        var queryStatements = qualifierIdentificators !== null 
+                            ? queryIdentificators === null ? reference.match(/[^,]+(?=,|$)/g) : queryIdentificators![3].match(/[^,]+(?=,|$)/g)
+                            : queryIdentificators![3].match(/[^,]+(?=,|$)/g);
+        if(queryStatements === null) throw new Error('Cannot parse this query');
+
+        var query:{fieldName: string; operand: {fieldValue: any; operation?: string;}[] }[] = new Array<{fieldName: string; operand: {fieldValue: any; operation?: string;}[] }>();
+        for(var statement of queryStatements){
+            var fieldName = statement.match(/^(\w+):(?:)?/)?.[1];
+            if(fieldName === null || fieldName === undefined) continue;
+      
+            if(/([^[]+(?=]))/.test(statement)) { // AND
+                var andStatement = statement.match(/([^[]+(?=]))/g)?.[0];
+                if(andStatement === undefined || andStatement.length < 1) continue;
+                var andPieces = andStatement.match(/[^;]+(?=;|$)/g);
+                if(andPieces === undefined || andPieces === null) continue;
+                
+                var operands: {fieldValue: any; operation?: string;}[] = new Array<{fieldValue: any; operation?: string;}>();
+                for(var piece of andPieces){
+                    var pieceParticles = piece.split(':');
+                    var operation = pieceParticles[0] === '' ? '$eq' : pieceParticles[0];
+                    var value = RelyonReferenceObject.convertToSupportedValue(fieldName, operation, pieceParticles[1]);
+                    operands.push({operation: operation, fieldValue: value});
+                }
+                query.push({fieldName: fieldName, operand: operands});
+            } else {
+                var pieceParticles = statement.split(':');
+                var operation = pieceParticles[1] === '' ? '$eq' : pieceParticles[1];
+                var value = RelyonReferenceObject.convertToSupportedValue(fieldName, operation, pieceParticles[2]);
+                query.push({fieldName: fieldName, operand: [{operation: operation, fieldValue: value}]})
+            }
         }
-        
-        return new RelyonReferenceObject(db, collection, query)
+        return new RelyonReferenceObject(db, collection, query);
+    }
+
+    static convertToSupportedValue(field:string, oper: string, value: any): any {
+        if(oper === '$not') {
+            return new RegExp(value);
+        } else if(field === '_id') {
+            return new ObjectId(value);
+        } else {
+            return JSON.parse(value);
+        }
     }
 
     static parseUnderlayingReference(reference: string): RelyonReferenceObject{
@@ -54,31 +93,51 @@ export class RelyonReferenceObject {
     }
 
     applyFilters(filters: string){
-        var queryObjects = filters.split(',');
-        var query:{fieldName: string; fieldValue: any; operation?: string;}[] = new Array<{fieldName: string; fieldValue: any; operation?: string;}>();
-        for(var queryStr of queryObjects){
-            var queryPieces = queryStr.split(':');
-            if(queryPieces.length < 3) continue;
-            query.push({fieldName: queryPieces[0], fieldValue: (queryPieces[0] === '_id') ? new ObjectId(queryPieces[2]) : JSON.parse(queryPieces[2]), operation: queryPieces[1]});
+        var queryStatements = filters.match(/[^,]+(?=,|$)/g);
+        if(queryStatements === null) throw new Error('Cannot parse this query');
+        var query:{fieldName: string; operand: {fieldValue: any; operation?: string;}[] }[] = new Array<{fieldName: string; operand: {fieldValue: any; operation?: string;}[] }>();
+        for(var statement of queryStatements){
+            var fieldName = statement.match(/^(\w+):(?:)?/)?.[1];
+            if(fieldName === null || fieldName === undefined) continue;
+            if(/([^[]+(?=]))/.test(statement)) { // AND
+                var andStatement = statement.match(/([^[]+(?=]))/g)?.[0];
+                if(andStatement === undefined || andStatement.length < 1) continue;
+                var andPieces = andStatement.match(/[^;]+(?=;|$)/g);
+                if(andPieces === undefined || andPieces === null) continue;
+                
+                var operands: {fieldValue: any; operation?: string;}[] = new Array<{fieldValue: any; operation?: string;}>();
+                for(var piece of andPieces){
+                    var pieceParticles = piece.split(':');
+                    var operation = pieceParticles[0] === '' ? '$eq' : pieceParticles[0];
+                    var value = RelyonReferenceObject.convertToSupportedValue(fieldName, operation, pieceParticles[1]);
+                    operands.push({operation: operation, fieldValue: value});
+                }
+                query.push({fieldName: fieldName, operand: operands});
+            } else {
+                var pieceParticles = statement.split(':');
+                var operation = pieceParticles[1] === '' ? '$eq' : pieceParticles[1];
+                var value = RelyonReferenceObject.convertToSupportedValue(fieldName, operation, pieceParticles[2]);
+                query.push({fieldName: fieldName, operand: [{operation: operation, fieldValue: value}]})
+            }
         }
+        console.log('FITLER: ' + JSON.stringify(query));
         this.query = [...this.query, ...query];
     }
 
-
     mongoQuery(): any {
         if(this.query.length < 1 && this.choiceSpecific) throw new Error('Query for choice specific reference is empty.');
-        var filterContainer: any = {};
-        for(var queryObject of this.query){
-            if(queryObject.operation) {
-                var filterValue: any = {};
-                filterValue[queryObject.operation] = queryObject.fieldValue;
-                filterContainer[queryObject.fieldName] = filterValue;
-            } else {
-                filterContainer[queryObject.fieldName] = queryObject.fieldValue;
-            }
-            
+        var query = this.query[0];
+        const mongoQuery: any = {};
+
+        for(var query of this.query){
+            mongoQuery[query.fieldName] = {};
+            query.operand.forEach((operand) => {
+                mongoQuery[query.fieldName][operand.operation!] = operand.fieldValue;
+                if(operand.fieldValue instanceof RegExp) { console.log(operand.fieldValue.toString())}
+            });
         }
-        return filterContainer;
+        console.log('Query: ' + JSON.stringify(mongoQuery));
+        return mongoQuery;
     }
 
 }
@@ -94,19 +153,12 @@ export interface RelyonDBRef<T> {
   
 export class RelyonDBRef<T> {
 
-    // @Expose() _id?: string;
-    // value?: any;
-    @Expose() ref: string; // DBNAME/COLLECTION/F_FIELDNAME:$regex:VALUE,ID_IDFIELD::VALUE
+    @Expose() ref: string; // DBNAME/COLLECTION/lowercase:[$not:/^in/;$regex:"pea"];
     @Expose() refQualifier?: string;
     @Exclude() refObject?: RelyonReferenceObject;
-    // @Exclude() @Transform(({ value }) => value ? new ObjectId(value) : undefined, { toClassOnly: true })
-    // user?: ObjectId;
 
     constructor(ref: string, refQualifier?: string, _id?: string, value?: any, user?: ObjectId) {
-        // this._id = _id;
-        // this.value = value;
         this.ref = ref;
-        // this.user = user;
         this.refQualifier = refQualifier;
         this.refObject = RelyonReferenceObject.parseReference(ref, refQualifier);
     }
@@ -132,6 +184,7 @@ export class RelyonDBRef<T> {
         if(this.refObject == undefined) throw Error('Reference object is not parsed from reference');
         if(withRefFilter && this.refObject !== undefined) this.refObject.applyFilters(withRefFilter);
         const col = connection.db(this.refObject?.database).collection(this.refObject?.collection);
+
         const result = col.find(this.refObject?.mongoQuery());
         if(!(await result.hasNext())) return undefined;
         var docs = await result.toArray();
@@ -139,3 +192,8 @@ export class RelyonDBRef<T> {
     }
 
 }
+
+// for OR ([^{]+(?=}))
+// for AND ([^[]+(?=]))
+// objects ([^\/]\S[^\/]+(?=\/|$))
+// queryPieces ([^,]+(?=,|$))

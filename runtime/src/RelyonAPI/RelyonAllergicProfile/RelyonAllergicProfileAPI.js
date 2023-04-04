@@ -98,6 +98,7 @@ router.post('/updateAllergy', express.json({type: '*/*'}), async (req, res, next
 
 router.post('/addAllergy', express.json({type: '*/*'}), async (req, res, next) => {
     var allergyData = req.body;
+    console.log(JSON.stringify(allergyData));
     try {
         var allergen = plainToInstance(RelyonAllergy, allergyData, { excludeExtraneousValues: true, exposeUnsetFields: false });
         var id = await allergen.insertToDatabase();
@@ -109,6 +110,7 @@ router.post('/addAllergy', express.json({type: '*/*'}), async (req, res, next) =
 
 router.post('/addAllergen', express.json({type: '*/*'}), async (req, res, next) => {
     var allergenJson = req.body;
+    console.log(JSON.stringify(allergenJson));
     try {
         var allergen = plainToInstance(RelyonAllergen, allergenJson, { excludeExtraneousValues: true });
         var id = await allergen.insertToDatabase();

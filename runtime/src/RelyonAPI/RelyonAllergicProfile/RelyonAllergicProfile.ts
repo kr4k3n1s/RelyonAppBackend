@@ -10,16 +10,24 @@ import { RelyonDBChoiceObject, RelyonDBRef } from "../RelyonDatabase/RelyonDatab
 export interface RelyonAllergen {
     _id?: ObjectId;
     name: string;
+    icon?: string;
+    iconURL?: string;
     lowercase: string;
     preDefined: boolean;
+    author?: ObjectId;
 }
 
 export class RelyonAllergen implements JSONConvertible, DBObject {
     @Expose() @Transform(({ value }) => value ? new ObjectId(value) : undefined, { toClassOnly: true })
     _id?: ObjectId;
     @Expose() name: string;
+    @Expose() icon?: string;
+    @Expose() @Transform(({ value }) => value ? value : undefined)
+    iconURL?: string;
     @Expose() lowercase: string;
     @Expose() preDefined: boolean;
+    @Expose() @Transform(({ value }) => value ? new ObjectId(value) : undefined, { toClassOnly: true })
+    author?: ObjectId;
 
     constructor(name: string, lowercase: string, preDefined: boolean, id?: ObjectId){
         this._id = id;
@@ -33,7 +41,7 @@ export class RelyonAllergen implements JSONConvertible, DBObject {
     }
 
     isComplete(): boolean {
-        return (this._id instanceof ObjectId && typeof this.name == "string" && typeof this.lowercase == "string"  && typeof this.preDefined == "boolean");
+        return (this._id instanceof ObjectId && typeof this.name == "string" && typeof this.lowercase == "string"  && typeof this.preDefined == "boolean" && typeof this.icon == 'string' && typeof this.iconURL == 'string' && this._id instanceof ObjectId);
     }
 
 
@@ -51,9 +59,9 @@ export class RelyonAllergen implements JSONConvertible, DBObject {
         const col = connection.db('RelyonAllergyProfile').collection('Allergens');
         const exists = await col.find({ $or: [ {name: this.name}, {_id: this._id} ] }).toArray();
 
-        if(exists.length > 1) throw new Error('Multiple Allergens found for id: ' + this._id + ', name: ' + this.name + '. Probably mismatched name and id?');
-        if(exists != undefined && !includeIfFound) throw new Error('Allergen with this name or id already exists');
-        if(exists != undefined) return exists[0]._id;
+        if(exists.length > 1 && !includeIfFound) throw new Error('Multiple Allergens found for id: ' + this._id + ', name: ' + this.name + '. Probably mismatched name and id?');
+        if(exists.length > 0 && !includeIfFound) throw new Error('Allergen with this name or id already exists');
+        if(exists != undefined && exists.length > 0) return exists[0]._id;
 
         const result = await col.insertOne(this);
         if(result == null) throw Error(`Could not insert allergen to Database.`);
@@ -89,16 +97,24 @@ export class RelyonAllergen implements JSONConvertible, DBObject {
 export interface RelyonGroceries {
     _id?: ObjectId;
     name: string;
+    icon?: string;
+    iconURL?: string;
     lowercase: string;
     preDefined: boolean;
+    author?: ObjectId;
 }
 
 export class RelyonGroceries implements JSONConvertible, DBObject {
     @Expose() @Transform(({ value }) => value ? new ObjectId(value) : undefined, { toClassOnly: true })
     _id?: ObjectId;
     @Expose() name: string;
+    @Expose() icon?: string;
+    @Expose()  @Transform(({ value }) => value ? value : undefined)
+    iconURL?: string;
     @Expose() lowercase: string;
     @Expose() preDefined: boolean;
+    @Expose() @Transform(({ value }) => value ? new ObjectId(value) : undefined, { toClassOnly: true })
+    author?: ObjectId;
 
     constructor(name: string, lowercase: string, preDefined: boolean, id?: ObjectId){
         this._id = id;
@@ -112,7 +128,7 @@ export class RelyonGroceries implements JSONConvertible, DBObject {
     }
 
     isComplete(): boolean {
-        return (this._id instanceof ObjectId && typeof this.name == "string" && typeof this.lowercase == "string"  && typeof this.preDefined == "boolean");
+        return (this._id instanceof ObjectId && typeof this.name == "string" && typeof this.lowercase == "string"  && typeof this.preDefined == "boolean" && typeof this.icon == 'string' && typeof this.iconURL == 'string' && this._id instanceof ObjectId);
     }
 
     static async initByID(id: string): Promise<RelyonGroceries> {
@@ -129,9 +145,9 @@ export class RelyonGroceries implements JSONConvertible, DBObject {
         const col = connection.db('RelyonAllergyProfile').collection('Groceries');
         const exists = await col.find({ $or: [ {name: this.name}, {_id: this._id} ] }).toArray();
 
-        if(exists.length > 1) throw new Error('Multiple Groceries found for id: ' + this._id + ', name: ' + this.name + '. Probably mismatched name and id?');
-        if(exists != undefined && !includeIfFound) throw new Error('Grocery with this name or id already exists');
-        if(exists != undefined) return exists[0]._id;
+        if(exists.length > 1 && !includeIfFound) throw new Error('Multiple Groceries found for id: ' + this._id + ', name: ' + this.name + '. Probably mismatched name and id?');
+        if(exists.length > 0 && !includeIfFound) throw new Error('Grocery with this name or id already exists');
+        if(exists != undefined && exists.length > 0) return exists[0]._id;
 
         const result = await col.insertOne(this);
         if(result == null) throw Error(`Could not insert Grocery to Database.`);
@@ -164,16 +180,24 @@ export class RelyonGroceries implements JSONConvertible, DBObject {
 export interface RelyonFood {
     _id?: ObjectId;
     name: string;
+    icon?: string;
+    iconURL?: string;
     lowercase: string;
     preDefined: boolean;
+    author?: ObjectId;
 }
 
 export class RelyonFood implements JSONConvertible, DBObject {
     @Expose() @Transform(({ value }) => value ? new ObjectId(value) : undefined, { toClassOnly: true })
     _id?: ObjectId;
     @Expose() name: string;
+    @Expose() icon?: string;
+    @Expose() @Transform(({ value }) => value ? value : undefined)
+    iconURL?: string;
     @Expose() lowercase: string;
     @Expose() preDefined: boolean;
+    @Expose() @Transform(({ value }) => value ? new ObjectId(value) : undefined, { toClassOnly: true })
+    author?: ObjectId;
 
     constructor(name: string, lowercase: string, preDefined: boolean, id?: ObjectId){
         this._id = id;
@@ -187,7 +211,7 @@ export class RelyonFood implements JSONConvertible, DBObject {
     }
 
     isComplete(): boolean {
-        return (this._id instanceof ObjectId && typeof this.name == "string" && typeof this.lowercase == "string"  && typeof this.preDefined == "boolean");
+        return (this._id instanceof ObjectId && typeof this.name == "string" && typeof this.lowercase == "string"  && typeof this.preDefined == "boolean" && typeof this.icon == 'string' && typeof this.iconURL == 'string' && this._id instanceof ObjectId);
     }
 
     static async initByID(id: string): Promise<RelyonFood> {
@@ -204,9 +228,9 @@ export class RelyonFood implements JSONConvertible, DBObject {
         const col = connection.db('RelyonAllergyProfile').collection('Food');
         const exists = await col.find({ $or: [ {name: this.name}, {_id: this._id} ] }).toArray();
 
-        if(exists.length > 1) throw new Error('Multiple Food found for id: ' + this._id + ', name: ' + this.name + '. Probably mismatched name and id?');
-        if(exists != undefined && !includeIfFound) throw new Error('Food with this name or id already exists');
-        if(exists != undefined) return exists[0]._id;
+        if(exists.length > 1 && !includeIfFound&& !includeIfFound) throw new Error('Multiple Food found for id: ' + this._id + ', name: ' + this.name + '. Probably mismatched name and id?');
+        if(exists.length > 0 && !includeIfFound) throw new Error('Food with this name or id already exists');
+        if(exists != undefined && exists.length > 0) return exists[0]._id;
 
         const result = await col.insertOne(this);
         if(result == null) throw Error(`Could not insert Food to Database.`);
@@ -238,8 +262,11 @@ export class RelyonFood implements JSONConvertible, DBObject {
 export interface RelyonInfluences {
     _id?: ObjectId;
     name: string;
+    icon?: string;
+    iconURL?: string;
     lowercase: string;
     preDefined: boolean;
+    author?: ObjectId;
 }
 
 export class RelyonInfluences implements JSONConvertible, DBObject {
@@ -247,8 +274,13 @@ export class RelyonInfluences implements JSONConvertible, DBObject {
     @Expose() @Transform(({ value }) => value ? new ObjectId(value) : undefined, { toClassOnly: true })
     _id?: ObjectId;
     @Expose() name: string;
+    @Expose() icon?: string;
+    @Expose() @Transform(({ value }) => value ? value : undefined)
+    iconURL?: string;
     @Expose() lowercase: string;
     @Expose() preDefined: boolean;
+    @Expose() @Transform(({ value }) => value ? new ObjectId(value) : undefined, { toClassOnly: true })
+    author?: ObjectId;
 
     constructor(name: string, lowercase: string, preDefined: boolean, id?: ObjectId){
         this._id = id;
@@ -262,7 +294,7 @@ export class RelyonInfluences implements JSONConvertible, DBObject {
     }
 
     isComplete(): boolean {
-        return (this._id instanceof ObjectId && typeof this.name == "string" && typeof this.lowercase == "string"  && typeof this.preDefined == "boolean");
+        return (this._id instanceof ObjectId && typeof this.name == "string" && typeof this.lowercase == "string"  && typeof this.preDefined == "boolean" && typeof this.icon == 'string' && typeof this.iconURL == 'string' && this._id instanceof ObjectId);
     }
 
     static async initByID(id: string): Promise<RelyonInfluences> {
@@ -279,9 +311,9 @@ export class RelyonInfluences implements JSONConvertible, DBObject {
         const col = connection.db('RelyonAllergyProfile').collection('Influences');
         const exists = await col.find({ $or: [ {name: this.name}, {_id: this._id} ] }).toArray();
 
-        if(exists.length > 1) throw new Error('Multiple Influences found for id: ' + this._id + ', name: ' + this.name + '. Probably mismatched name and id?');
-        if(exists != undefined && !includeIfFound) throw new Error('Influence with this name or id already exists');
-        if(exists != undefined) return exists[0]._id;
+        if(exists.length > 1 && !includeIfFound) throw new Error('Multiple Influences found for id: ' + this._id + ', name: ' + this.name + '. Probably mismatched name and id?');
+        if(exists.length > 0 && !includeIfFound) throw new Error('Influence with this name or id already exists');
+        if(exists != undefined && exists.length > 0) return exists[0]._id;
 
         const result = await col.insertOne(this);
         if(result == null) throw Error(`Could not insert Influence to Database.`);
@@ -482,8 +514,7 @@ export class RelyonQuestion implements JSONConvertible, DBObject {
         const col = connection.db('RelyonAllergyProfile').collection('Questions');
         const exists = await col.find({ $or: [ {question: this.question}, {_id: this._id} ] }).toArray();
 
-        console.log('Array: ' + JSON.stringify(exists));
-        if(exists.length > 1) throw new Error('Multiple Questions found for id: ' + this._id + ', question: ' + this.question + '. Probably mismatched question and id?');
+        if(exists.length > 1 && !includeIfFound) throw new Error('Multiple Questions found for id: ' + this._id + ', question: ' + this.question + '. Probably mismatched question and id?');
         if(exists != undefined && exists.length > 0 && !includeIfFound) throw new Error('Question with this question or id already exists');
         if(exists != undefined && exists.length > 0) return exists[0]._id;
 

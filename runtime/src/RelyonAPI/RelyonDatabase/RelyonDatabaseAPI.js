@@ -1,9 +1,21 @@
-import { RelyonDBRef } from './RelyonDatabase';
+import { RelyonDBRef, RelyonReferenceObject } from './RelyonDatabase';
 
 const express = require('express');
 const router = express.Router();
 
 module.exports = router
+
+router.get('/testNewQuery', async (req, res, next) => {
+    
+    const ref = req.query.ref;
+    var reference = RelyonReferenceObject.parseReference(ref, undefined);
+    res.send(JSON.stringify(reference.mongoQuery()));
+});
+
+router.get('/testRef', async (req, res, next) => {
+    var ref = {'lowercase': { '$not': /^nut proteins.*/, '$regex': 'nut' } }
+    res.status(200).send({status: 'success', result: JSON.stringify(ref)});
+});
 
 router.get('/referencedObject', async (req, res, next) => {
     const ref = req.query.ref;

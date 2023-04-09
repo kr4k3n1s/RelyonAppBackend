@@ -346,6 +346,7 @@ export interface RelyonAllergy {
     
     _id?: ObjectId;
     name: string;
+    lowercase: string;
     relatedQuestions?: Array<ObjectId>;
     allergens?: Array<RelyonAllergen>;
     groceries?: Array<RelyonGroceries>;
@@ -359,6 +360,8 @@ export class RelyonAllergy implements JSONConvertible, DBObject {
     _id?: ObjectId;
     @Expose() 
     name!: string;
+    @Expose() 
+    lowercase!: string;
     @Expose() @Transform(({ value }) => value ? value.map((_obj: unknown[]) => {return new ObjectId(value)}) : undefined, { toClassOnly: true })
     relatedQuestions?: Array<ObjectId>;
     @Expose() @Transform(({ value }) => value ? value.map((obj: unknown[]) => {return plainToInstance(RelyonAllergen, obj)}) : undefined, { toClassOnly: true })
@@ -447,19 +450,28 @@ export class RelyonAllergy implements JSONConvertible, DBObject {
 
 export interface RelyonQuestion {
     _id?: ObjectId;
-    question: string;
+    name: string;
+    lowercase: string;
     category: string;
+    guidance: string;
     choiceType: string;
     choice?: RelyonDBChoiceObject<RelyonDBRef<any>[]>
 }
 
 export class RelyonQuestion implements JSONConvertible, DBObject {
-    @Expose() @Transform(({ value }) => value ? new ObjectId(value) : undefined, { toClassOnly: true })
+    @Expose() @Transform(({ value }) => {
+        console.log('Value: ' + value);
+        return value;
+    }, { toClassOnly: true })
     _id?: ObjectId;
     @Expose() 
-    question!: string;
+    name!: string;
     @Expose() 
-    category!: string;  
+    category!: string;
+    @Expose() 
+    lowercase!: string;
+    @Expose() 
+    guidance!: string;  
     @Expose() 
     choiceType!: string;
     @Expose() @Transform(({ value }) => new RelyonDBChoiceObject(value.object.map((obj: { ref: string; }) => {
@@ -472,13 +484,15 @@ export class RelyonQuestion implements JSONConvertible, DBObject {
         const col = connection.db('RelyonAllergyProfile').collection('Questions');
         var result = await col.findOne<RelyonQuestion>({_id: new ObjectId(id)});
         if(result == null) throw Error(`Could not find Question with this id on Database.`);
-        return plainToInstance(RelyonQuestion, result);
+        var object = plainToInstance(RelyonQuestion, result);
+        object._id = result._id;
+        return object;
     }
 
     isComplete(): boolean {
         return (
             this._id instanceof ObjectId &&
-            typeof this.question == "string" && 
+            typeof this.name == "string" && 
             typeof this.category == "string" && 
             typeof this.choiceType == "string" && 
             this.choice instanceof RelyonDBChoiceObject<RelyonDBRef<any>[]>);
@@ -486,7 +500,7 @@ export class RelyonQuestion implements JSONConvertible, DBObject {
 
     isPartial(): boolean {
          return (
-            typeof this.question == "string" && 
+            typeof this.name == "string" && 
             typeof this.category == "string" && 
             typeof this.choiceType == "string");
     }
@@ -496,7 +510,7 @@ export class RelyonQuestion implements JSONConvertible, DBObject {
         for(var refObject of this.choice!.object) {
             if(withRefFilter) refObject.refObject?.applyFilters(withRefFilter);
             var object = await refObject.getReferencedObject();
-            if(object) objects.push(object);
+            if(object) objects.push(object[0]);
         }
         return objects;
     }
@@ -512,9 +526,9 @@ export class RelyonQuestion implements JSONConvertible, DBObject {
         if (!this.isPartial()) throw new Error('Object of Question is not complete or correct.');
         const connection = await DBClient.connect();
         const col = connection.db('RelyonAllergyProfile').collection('Questions');
-        const exists = await col.find({ $or: [ {question: this.question}, {_id: this._id} ] }).toArray();
+        const exists = await col.find({ $or: [ {question: this.name}, {_id: this._id} ] }).toArray();
 
-        if(exists.length > 1 && !includeIfFound) throw new Error('Multiple Questions found for id: ' + this._id + ', question: ' + this.question + '. Probably mismatched question and id?');
+        if(exists.length > 1 && !includeIfFound) throw new Error('Multiple Questions found for id: ' + this._id + ', question: ' + this.name + '. Probably mismatched question and id?');
         if(exists != undefined && exists.length > 0 && !includeIfFound) throw new Error('Question with this question or id already exists');
         if(exists != undefined && exists.length > 0) return exists[0]._id;
 

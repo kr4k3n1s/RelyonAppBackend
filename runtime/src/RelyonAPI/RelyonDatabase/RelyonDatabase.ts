@@ -7,9 +7,11 @@ import { DBClient } from "../RelyonAPI";
 
 export class RelyonDBChoiceObject<T = unknown> {
     @Expose() choiceQualifier?: string;
+    @Expose() referenceBase: string;
     @Expose() object: T;
 
-    constructor(object: T, choiceQualifier?: string){
+    constructor(object: T, referenceBase: string, choiceQualifier?: string){
+        this.referenceBase = referenceBase;
         this.choiceQualifier = choiceQualifier;
         this.object = object;
     }
@@ -142,10 +144,32 @@ export class RelyonReferenceObject {
 
 }
 
+export interface RelyonNominalDBObject {
+    name: string;
+    lowercase: string;
+    icon?: string;
+    iconURL?: string;
+    attributes?: any[];
+}
+
+export class RelyonNominalDBObject {
+    @Expose()
+    name!: string;
+    @Expose()
+    lowercase!: string;
+    @Expose() @Transform(({ value }) => value ? value : undefined, { toClassOnly: true })
+    icon?: string;
+    @Expose() @Transform(({ value }) => value ? value : undefined, { toClassOnly: true })
+    iconURL?: string;
+    @Transform(({ value }) => value ? value.map((obj: unknown[]) => {return obj;}) : undefined, { toClassOnly: true })
+    attributes?: any[];
+}
+
 export interface RelyonDBRef<T> {
     _id?: string;
-    value?: any;
+    // value?: any;
     ref: string;
+    nominalObject?: RelyonNominalDBObject;
     refObject?: RelyonReferenceObject;
     refQualifier?: string;
     user?: ObjectId;
@@ -156,6 +180,13 @@ export class RelyonDBRef<T> {
     @Expose() ref: string; // DBNAME/COLLECTION/lowercase:[$not:/^in/;$regex:"pea"];
     @Expose() refQualifier?: string;
     @Exclude() refObject?: RelyonReferenceObject;
+    @Exclude({ toPlainOnly: true })
+    nominalObject?: RelyonNominalDBObject;
+
+    // @Expose({name: 'choice', toClassOnly: true})
+    // nominalToChoice(){
+    //     this._id = this.nominalObject.
+    // }
 
     constructor(ref: string, refQualifier?: string, _id?: string, value?: any, user?: ObjectId) {
         this.ref = ref;
@@ -164,8 +195,7 @@ export class RelyonDBRef<T> {
     }
 
     requireSpecificReference(){
-        if(this.refObject)
-            this.refObject.choiceSpecific = true;
+        if(this.refObject) this.refObject.choiceSpecific = true;
     }
 
     async getUnderlayingObjects(withRefFilter?: string): Promise<T[] | T | undefined>  {

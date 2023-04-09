@@ -22,6 +22,17 @@ router.get('/testQuery', async (req, res, next) => {
     }
 });
 
+router.get('/question', async (req, res, next) => {
+    const id = req.query.id;
+    try {
+        var question = await RelyonQuestion.initByID(id);
+        if(!(question instanceof RelyonQuestion)) throw Error('Received object is not a question. Object: ' + JSON.stringify(question));
+        res.status(200).send({status: 'success', result: question});
+    } catch (error){
+        res.status(500).send({status: 'error', result: error.message});
+    }
+});
+
 router.get('/questionOptions', async (req, res, next) => {
     const id = req.query.id;
     const filter = req.query.filter;
@@ -50,6 +61,7 @@ router.get('/questionSourceOptions', UserAuth, async (req, res, next) => {
 
 router.post('/addQuestion', AdminAuth, express.json({type: '*/*'}), async (req, res, next) => {
     var data = req.body;
+    console.log(JSON.stringify(data));
     try {
         var question = plainToInstance(RelyonQuestion, data, { excludeExtraneousValues: true, exposeUnsetFields: false });
         var id = await question.insertToDatabase();

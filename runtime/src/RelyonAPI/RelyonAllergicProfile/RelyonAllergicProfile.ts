@@ -523,6 +523,7 @@ export class RelyonQuestion implements JSONConvertible, DBObject {
     }
 
     async insertToDatabase(includeIfFound?: boolean | undefined): Promise<ObjectId> {
+        console.log('QUESTION: ' + JSON.stringify(this));
         if (!this.isPartial()) throw new Error('Object of Question is not complete or correct.');
         const connection = await DBClient.connect();
         const col = connection.db('RelyonAllergyProfile').collection('Questions');

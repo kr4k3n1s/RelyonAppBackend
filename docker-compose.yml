@@ -16,6 +16,7 @@ services:
 
   relyon-app-server:
     image: relyon-app-server
+    restart: always
     build:
       context: runtime
       dockerfile: ./Dockerfile.dev

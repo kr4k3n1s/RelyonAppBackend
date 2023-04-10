@@ -169,26 +169,31 @@ export interface RelyonDBRef<T> {
     _id?: string;
     // value?: any;
     ref: string;
-    nominalObject?: RelyonNominalDBObject;
+    // nominalObject?: RelyonNominalDBObject;
     refObject?: RelyonReferenceObject;
     refQualifier?: string;
-    user?: ObjectId;
+    value?: any;
+    lowercase?: string;
 }
   
 export class RelyonDBRef<T> {
 
     @Expose() ref: string; // DBNAME/COLLECTION/lowercase:[$not:/^in/;$regex:"pea"];
-    @Expose() refQualifier?: string;
-    @Exclude() refObject?: RelyonReferenceObject;
-    @Exclude({ toPlainOnly: true })
-    nominalObject?: RelyonNominalDBObject;
+    @Exclude({toPlainOnly: true}) refQualifier?: string;
+    @Exclude({toPlainOnly: true}) refObject?: RelyonReferenceObject;
+    // @Exclude({toPlainOnly: true})
+    // nominalObject?: RelyonNominalDBObject;
+    value?: any;
+    lowercase?: string;
 
     // @Expose({name: 'choice', toClassOnly: true})
     // nominalToChoice(){
     //     this._id = this.nominalObject.
     // }
 
-    constructor(ref: string, refQualifier?: string, _id?: string, value?: any, user?: ObjectId) {
+    constructor(ref: string, refQualifier?: string, _id?: string, value?: string) {
+        this.value = value;
+        this.lowercase = value?.toLowerCase();
         this.ref = ref;
         this.refQualifier = refQualifier;
         this.refObject = RelyonReferenceObject.parseReference(ref, refQualifier);

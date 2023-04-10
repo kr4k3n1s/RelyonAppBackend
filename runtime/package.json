@@ -19,7 +19,8 @@
     "morgan": "~1.9.1",
     "reflec-ts": "0.3.9",
     "reflect-metadata": "^0.1.13",
-    "twilio": "^4.7.2"
+    "twilio": "^4.7.2",
+    "common-js": "0.3.8"
   },
   "devDependencies": {
     "@types/node": "^18.13.0",

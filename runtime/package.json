@@ -23,6 +23,7 @@
     "common-js": "0.3.8"
   },
   "devDependencies": {
+    "debug": "4.3.4",
     "@types/node": "^18.13.0",
     "jsonwebtoken": "^9.0.0",
     "nodemon": "^2.0.20",
@@ -31,7 +32,6 @@
     "typescript": "^4.9.5",
     "common-js": "0.3.8",
     "common": "0.2.5",
-    "twilio": "^4.7.2",
-    "debug": "4.3.4"
+    "twilio": "^4.7.2"
   }
 }

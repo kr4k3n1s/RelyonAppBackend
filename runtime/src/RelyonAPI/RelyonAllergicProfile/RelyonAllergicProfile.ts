@@ -2,7 +2,7 @@ import { plainToClass, plainToInstance, Expose, Type, Transform, Exclude } from 
 import { ObjectId } from "mongodb";
 import { DBObject, JSONConvertible } from "../../Framework/RelyonCore";
 import { DBClient } from "../RelyonAPI";
-import { RelyonDBChoiceObject, RelyonDBRef } from "../RelyonDatabase/RelyonDatabase";
+import { RelyonDBChoiceObject, RelyonDBRef, RelyonDBPlaceholderRef } from "../RelyonDatabase/RelyonDatabase";
 
 
 // ! Allergen Class
@@ -455,7 +455,7 @@ export interface RelyonQuestion {
     category: string;
     guidance: string;
     choiceType: string;
-    choice?: RelyonDBChoiceObject<RelyonDBRef<any>[]>
+    choice?: RelyonDBChoiceObject<RelyonDBRef<any>[] | RelyonDBPlaceholderRef[]>
 }
 
 export class RelyonQuestion implements JSONConvertible, DBObject {
@@ -474,10 +474,13 @@ export class RelyonQuestion implements JSONConvertible, DBObject {
     guidance!: string;  
     @Expose() 
     choiceType!: string;
-    @Expose() @Transform(({ value }) => new RelyonDBChoiceObject(value.object.map((obj: { ref: string; }) => {
-        return new RelyonDBRef(obj.ref, value.choiceQualifier);
-    }), value.choiceQualifier), { toClassOnly: true })
-    choice?: RelyonDBChoiceObject<RelyonDBRef<any>[]>
+    @Expose() @Transform(({ value }) => {   
+        var choiceQualifier = (value.choiceQualifier) ? value.choiceQualifier : value.referenceBase;
+        return new RelyonDBChoiceObject(value.object.map((obj: { ref: string; _id: string | undefined; value: any; }) => {
+            return new RelyonDBRef(obj.ref, choiceQualifier, obj._id, obj.value);
+        }), value.referenceBase, choiceQualifier)
+    }, { toClassOnly: true })
+    choice?: RelyonDBChoiceObject<RelyonDBRef<any>[] | RelyonDBPlaceholderRef[]>
 
     static async initByID(id: string){
         const connection = await DBClient.connect();
@@ -487,6 +490,16 @@ export class RelyonQuestion implements JSONConvertible, DBObject {
         var object = plainToInstance(RelyonQuestion, result);
         object._id = result._id;
         return object;
+    }
+
+    convertToStringReference(){
+        var objects: any = [];
+        if(this.choice === undefined) throw new Error('Cannot convert empty references to database placeholder objects.');
+        for(var refObject of this.choice!.object) {
+            if(refObject instanceof RelyonDBPlaceholderRef) break;
+            objects.push(refObject.convertToPlaceholderReference());
+        }
+        this.choice!.object = objects as RelyonDBPlaceholderRef[];
     }
 
     isComplete(): boolean {
@@ -507,7 +520,9 @@ export class RelyonQuestion implements JSONConvertible, DBObject {
 
     async getOptions(withRefFilter?: string): Promise<any[]> {
         var objects: any[] = [];
+        // ! Maybe add option to convert stringRef to DBRef ?
         for(var refObject of this.choice!.object) {
+            if(refObject instanceof RelyonDBPlaceholderRef) throw new Error('Implicitaly is object StringReference instead of DBReference');
             if(withRefFilter) refObject.refObject?.applyFilters(withRefFilter);
             var object = await refObject.getReferencedObject();
             if(object) objects.push(object[0]);

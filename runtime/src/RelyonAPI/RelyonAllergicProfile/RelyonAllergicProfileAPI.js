@@ -64,6 +64,7 @@ router.post('/addQuestion', AdminAuth, express.json({type: '*/*'}), async (req, 
     console.log(JSON.stringify(data));
     try {
         var question = plainToInstance(RelyonQuestion, data, { excludeExtraneousValues: true, exposeUnsetFields: false });
+        question.convertToStringReference();
         var id = await question.insertToDatabase();
         res.status(200).send({status: 'success', result: id});
     } catch (error){

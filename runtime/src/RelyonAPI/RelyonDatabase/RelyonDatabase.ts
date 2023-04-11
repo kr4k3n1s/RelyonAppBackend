@@ -6,7 +6,7 @@ import { ObjectId } from "mongodb";
 import { DBClient } from "../RelyonAPI";
 
 export class RelyonDBChoiceObject<T = unknown> {
-    @Expose() choiceQualifier?: string;
+    @Expose() @Transform(({ value }) => value ? value : undefined) choiceQualifier?: string;
     @Expose() referenceBase: string;
     @Expose() object: T;
 
@@ -165,6 +165,13 @@ export class RelyonNominalDBObject {
     attributes?: any[];
 }
 
+export interface DatabaseReferencable {
+    _id?: string;
+    ref: string;
+    value?: any;
+    lowercase?: string;
+}
+
 export interface RelyonDBRef<T> {
     _id?: string;
     // value?: any;
@@ -175,21 +182,40 @@ export interface RelyonDBRef<T> {
     value?: any;
     lowercase?: string;
 }
+
+export class RelyonDBPlaceholderRef implements DatabaseReferencable {
+    @Expose() @Transform(({ value }) => value ? value : undefined)
+    _id?: string;
+    @Expose()
+    ref: string;
+    @Expose()
+    value: any;
+    @Expose()
+    lowercase: string;
+
+    constructor(value: string, ref: string, _id?: string) {
+        this.value = value;
+        this.lowercase = value.toLowerCase();
+        this.ref = ref;
+        this._id = _id;
+    }
+
+    convertToDatabaseReference(): RelyonDBRef {
+        if(this.value === undefined) throw new Error('Value is required in order to convert reference to Reference placeholder object.');
+        return new RelyonDBRef(this.ref, undefined, this._id, this.value);
+    }
+
+}
   
-export class RelyonDBRef<T> {
+export class RelyonDBRef<T={}> implements DatabaseReferencable {
 
     @Expose() ref: string; // DBNAME/COLLECTION/lowercase:[$not:/^in/;$regex:"pea"];
     @Exclude({toPlainOnly: true}) refQualifier?: string;
     @Exclude({toPlainOnly: true}) refObject?: RelyonReferenceObject;
-    // @Exclude({toPlainOnly: true})
-    // nominalObject?: RelyonNominalDBObject;
+    @Expose() @Transform(({ value }) => value ? value : undefined, { toClassOnly: true })
     value?: any;
+    @Expose() @Transform(({ value }) => value ? value : undefined, { toClassOnly: true })
     lowercase?: string;
-
-    // @Expose({name: 'choice', toClassOnly: true})
-    // nominalToChoice(){
-    //     this._id = this.nominalObject.
-    // }
 
     constructor(ref: string, refQualifier?: string, _id?: string, value?: string) {
         this.value = value;
@@ -201,6 +227,11 @@ export class RelyonDBRef<T> {
 
     requireSpecificReference(){
         if(this.refObject) this.refObject.choiceSpecific = true;
+    }
+
+    convertToPlaceholderReference(): RelyonDBPlaceholderRef {
+        if(this.value === undefined) throw new Error('Value is required in order to convert reference to Reference placeholder object.');
+        return new RelyonDBPlaceholderRef(this.value, this.ref, this._id);
     }
 
     async getUnderlayingObjects(withRefFilter?: string): Promise<T[] | T | undefined>  {
